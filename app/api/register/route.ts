@@ -1,15 +1,17 @@
 import bcrypt from "bcrypt";
-import type { NextApiRequest, NextApiResponse } from "next";
+import { NextResponse } from "next/server";
 import prismadb from "@/lib/prismadb";
 
-export async function handler( req: NextApiRequest, res: NextApiResponse ) {
-
-  if (req.method !== "POST") {
-    return res.status(405).end();
-  }
+export async function POST(req: Request) {
 
   try {
-    const { email, name, password } = req.body;
+    const body = await req.json();
+
+    const { name, email, password } = body;
+
+    if (!name || !email || !password) {
+      return new NextResponse("All fields required", { status: 400 });
+    }
 
     const existingUser = await prismadb.user.findUnique({
       where: {
@@ -18,7 +20,7 @@ export async function handler( req: NextApiRequest, res: NextApiResponse ) {
     });
 
     if (existingUser) {
-      return res.status(422).json({ error: "Email taken" });
+      return new NextResponse("User already exists", { status: 400 });
     }
 
     const hashedPassword = await bcrypt.hash(password, 12);
@@ -33,13 +35,9 @@ export async function handler( req: NextApiRequest, res: NextApiResponse ) {
       },
     });
 
-    return res.status(200).json(user);
+    return NextResponse.json(user);
   } catch (error) {
-    console.error("Error during user registration:", error);
-    return res.status(400).end();
+    console.log("[USER_POST]", error);
+    return new NextResponse("Internal Error", { status: 500 });
   }
 }
-// export async function POST(req: NextApiRequest, res: NextApiResponse) {
-//   // You can reuse the logic here if needed
-//   return handler(req, res);
-// }
